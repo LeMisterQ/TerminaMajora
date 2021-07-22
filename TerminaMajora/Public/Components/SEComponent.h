@@ -6,6 +6,7 @@
 #include "Runtime/Engine/Classes/Engine/DataTable.h"
 #include "Sound/SoundCue.h"
 #include "Components/ActorComponent.h"
+#include "Components/Traces/LineTraceBase.h"
 #include "SEComponent.generated.h"
 
 //Decoration, there is going to be a pointer on this
@@ -50,7 +51,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sounds|Shield")
 		class USoundCue* ShieldInSound;
 
-	class USoundBase* ZViewSoundToPlay;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sounds|View")
+		class USoundBase* ZViewSoundToPlay;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sounds|View")
 		class USoundBase* ZViewStandardSound;
@@ -78,6 +80,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sounds|Footsteps")
 		class USoundCue* Footstep_TallGrass;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Reference")
+		class ULineTraceBase* LineTrace;
 
 protected:
 	// Called when the game starts

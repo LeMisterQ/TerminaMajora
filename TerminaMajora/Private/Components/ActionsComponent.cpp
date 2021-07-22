@@ -6,6 +6,9 @@
 #include "AnimInstance/AnimInstanceBase.h"
 #include "Gear/Sword1H.h"
 #include "Camera/CameraComponent.h"
+#include "DrawDebugHelpers.h"
+#include "Kismet/GameplayStatics.h"
+#include "Components/CapsuleComponent.h"
 
 // Sets default values for this component's properties
 UActionsComponent::UActionsComponent()
@@ -15,6 +18,9 @@ UActionsComponent::UActionsComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 
 	ActionsMontagesDataTable = GetActionsMontagesDataTable();
+
+	//Attach LineTrace for ledge detection
+	LineTrace = CreateDefaultSubobject<ULineTraceBase>(TEXT("LineTrace"));
 
 }
 
@@ -35,7 +41,7 @@ void UActionsComponent::BeginPlay()
 	SpringArm_ZOffset = OwnerPlayer->GetSpringArmComponent()->SocketOffset.Z;
 	Controller_Initial_Rotation = OwnerPlayer->GetCameraOrientRef()->GetComponentRotation();
 
-	
+	//ZView camera transition Management
 	if (ZViewCurveFloat)
 	{
 		//Initializing the TimeLine
@@ -62,10 +68,37 @@ void UActionsComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// Timeline setting delta time
+	// !IMPORTANT : Timeline setting delta time
 	ZViewCameraFTimeline.TickTimeline(DeltaTime);
 	ZViewCameraInBackFTimeline.TickTimeline(DeltaTime);
 	ZViewRotateYCameraFTimeline.TickTimeline(DeltaTime);
+
+	//Ledge Detection for Auto Jump : if no floor detected when tracing at least the Max Step Height : ledge detected and auto-jump possible
+	//LineTrace parameters
+	FCollisionQueryParams TraceParams;
+	TraceParams.bTraceComplex = false;
+	float CapsuleRadius = OwnerPlayer->GetCapsuleComponent()->GetScaledCapsuleRadius();
+	float CapsuleHalfHeight = OwnerPlayer->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+	float CurrentSpeed = OwnerPlayer->GetCustomAnimInstance()->Speed;
+	float CurrentMaxSpeed = OwnerPlayer->GetMovementComp()->MaxWalkSpeed * 0.75f;
+	FString ResultFloor = LineTrace->FloorTypeCheck(OwnerPlayer, FName("foot_r"));
+
+	TraceStart = FVector(OwnerPlayer->GetActorLocation().X, OwnerPlayer->GetActorLocation().Y, (OwnerPlayer->GetActorLocation().Z - CapsuleHalfHeight)) + FVector(OwnerPlayer->GetActorForwardVector() * CapsuleRadius);
+	TraceEnd = FVector(TraceStart.X, TraceStart.Y, TraceStart.Z - OwnerPlayer->GetMovementComp()->MaxStepHeight);
+
+	bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, TraceParams);
+	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, FColor::Red, false, TraceDuration);
+
+	if (bHit)
+	{
+		/*DrawDebugBox(GetWorld(), Hit.ImpactPoint, FVector(5, 5, 5), FColor::Emerald, false, TraceDuration);*/
+	}
+	//If we detect a ledge + player is running, THEN we jump
+	else if (!bHit && CurrentSpeed >= CurrentMaxSpeed && (!ResultFloor.IsEmpty() && !ResultFloor.Contains("no_hit") && !ResultFloor.Contains("landscape")))
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Yellow, ResultFloor);
+		ExecJump(EJumpTypes::StandardJump);
+	}
 }
 
 void UActionsComponent::FaceRight_Button_NormalAttack_Implementation()
@@ -690,80 +723,108 @@ void UActionsComponent::ExecJump(EJumpTypes ChosenJump)
 			MontagesStruct = ActionsMontagesDataTable->FindRow<FActionsMontages>(FName(TEXT("UNARMED")), CustomContextString, true);
 		}
 
-		if (ChosenJump == EJumpTypes::ZViewLeftJump)
+		switch (ChosenJump)
 		{
-			if (ActionsMontagesDataTable)
+			case EJumpTypes::ZViewLeftJump:
 			{
-				
-				//Fetch the corresponding CharacterActions Struct (1st level)
-				TMap<EJumpTypes, FAnimMontages> JumpTypes = MontagesStruct->Jumps;
-				//Get the Montage struct corresponding to the enum we want
-				FAnimMontages EquipAnimMontageStruct = JumpTypes.FindRef(ChosenJump);
-				//Get the Montage from the last Montages Struct
-				UAnimMontage* FetchedMontage = EquipAnimMontageStruct.AnimMontage;
+				if (ActionsMontagesDataTable)
+				{
 
-				//Plays the montage
-				JumpForce = (OwnerPlayer->GetActorRightVector() * -(JumpDistance)+(OwnerPlayer->GetActorUpVector() * JumpHeight));
-				OwnerPlayer->LaunchCharacter(JumpForce, true, true);
-				OwnerPlayer->PlayAnimMontage(FetchedMontage, 1.0f);
+					//Fetch the corresponding CharacterActions Struct (1st level)
+					TMap<EJumpTypes, FAnimMontages> JumpTypes = MontagesStruct->Jumps;
+					//Get the Montage struct corresponding to the enum we want
+					FAnimMontages EquipAnimMontageStruct = JumpTypes.FindRef(ChosenJump);
+					//Get the Montage from the last Montages Struct
+					UAnimMontage* FetchedMontage = EquipAnimMontageStruct.AnimMontage;
+
+					//Plays the montage
+					JumpForce = (OwnerPlayer->GetActorRightVector() * -(JumpDistance)+(OwnerPlayer->GetActorUpVector() * JumpHeight));
+					OwnerPlayer->LaunchCharacter(JumpForce, true, true);
+					OwnerPlayer->PlayAnimMontage(FetchedMontage, 1.0f);
+				}
+				break;
+			}
+
+			case EJumpTypes::ZViewRightJump:
+			{
+				if (ActionsMontagesDataTable)
+				{
+
+					//Fetch the corresponding CharacterActions Struct (1st level)
+					TMap<EJumpTypes, FAnimMontages> JumpTypes = MontagesStruct->Jumps;
+					//Get the Montage struct corresponding to the enum we want
+					FAnimMontages EquipAnimMontageStruct = JumpTypes.FindRef(ChosenJump);
+					//Get the Montage from the last Montages Struct
+					UAnimMontage* FetchedMontage = EquipAnimMontageStruct.AnimMontage;
+
+					//Plays the montage
+					JumpForce = (OwnerPlayer->GetActorRightVector() * JumpDistance + (OwnerPlayer->GetActorUpVector() * JumpHeight));
+					OwnerPlayer->LaunchCharacter(JumpForce, true, true);
+					OwnerPlayer->PlayAnimMontage(FetchedMontage, 1.0f);
+				}
+				break;
+			}
+
+			case EJumpTypes::ZViewBackFlip:
+			{
+				if (ActionsMontagesDataTable)
+				{
+
+					//Fetch the corresponding CharacterActions Struct (1st level)
+					TMap<EJumpTypes, FAnimMontages> JumpTypes = MontagesStruct->Jumps;
+					//Get the Montage struct corresponding to the enum we want
+					FAnimMontages EquipAnimMontageStruct = JumpTypes.FindRef(ChosenJump);
+					//Get the Montage from the last Montages Struct
+					UAnimMontage* FetchedMontage = EquipAnimMontageStruct.AnimMontage;
+
+					//Plays the montage
+					JumpForce = (OwnerPlayer->GetActorForwardVector() * -(JumpDistance / 2.25f) + (OwnerPlayer->GetActorUpVector() * JumpHeight * 1.45f));
+					OwnerPlayer->LaunchCharacter(JumpForce, true, true);
+					OwnerPlayer->PlayAnimMontage(FetchedMontage, 1.0f);
+				}
+				break;
+			}
+
+			case EJumpTypes::ZViewJumpAttack:
+			{
+				if (ActionsMontagesDataTable)
+				{
+
+					//Fetch the corresponding CharacterActions Struct (1st level)
+					TMap<EJumpTypes, FAnimMontages> JumpTypes = MontagesStruct->Jumps;
+					//Get the Montage struct corresponding to the enum we want
+					FAnimMontages EquipAnimMontageStruct = JumpTypes.FindRef(ChosenJump);
+					//Get the Montage from the last Montages Struct
+					UAnimMontage* FetchedMontage = EquipAnimMontageStruct.AnimMontage;
+
+					//Plays the montage
+					JumpForce = (OwnerPlayer->GetActorForwardVector() * (JumpDistance / 2.25f) + (OwnerPlayer->GetActorUpVector() * JumpHeight * 1.45f));
+					OwnerPlayer->LaunchCharacter(JumpForce, true, true);
+					OwnerPlayer->PlayAnimMontage(FetchedMontage, 1.0f);
+				}
+				break;
+			}
+
+			case EJumpTypes::StandardJump:
+			{
+				if (ActionsMontagesDataTable)
+				{
+
+					//Fetch the corresponding CharacterActions Struct (1st level)
+					TMap<EJumpTypes, FAnimMontages> JumpTypes = MontagesStruct->Jumps;
+					//Get the Montage struct corresponding to the enum we want
+					FAnimMontages EquipAnimMontageStruct = JumpTypes.FindRef(ChosenJump);
+					//Get the Montage from the last Montages Struct
+					UAnimMontage* FetchedMontage = EquipAnimMontageStruct.AnimMontage;
+
+					//Plays the montage
+					JumpForce = (OwnerPlayer->GetActorForwardVector() * (JumpDistance / 2.0f) + (OwnerPlayer->GetActorUpVector() * JumpHeight * 1.6f));
+					OwnerPlayer->LaunchCharacter(JumpForce, true, true);
+					OwnerPlayer->PlayAnimMontage(FetchedMontage, 1.0f);
+				}
+				break;
 			}
 		}
-		else if (ChosenJump == EJumpTypes::ZViewRightJump)
-		{
-			if (ActionsMontagesDataTable)
-			{
-
-				//Fetch the corresponding CharacterActions Struct (1st level)
-				TMap<EJumpTypes, FAnimMontages> JumpTypes = MontagesStruct->Jumps;
-				//Get the Montage struct corresponding to the enum we want
-				FAnimMontages EquipAnimMontageStruct = JumpTypes.FindRef(ChosenJump);
-				//Get the Montage from the last Montages Struct
-				UAnimMontage* FetchedMontage = EquipAnimMontageStruct.AnimMontage;
-
-				//Plays the montage
-				JumpForce = (OwnerPlayer->GetActorRightVector() * JumpDistance + (OwnerPlayer->GetActorUpVector() * JumpHeight));
-				OwnerPlayer->LaunchCharacter(JumpForce, true, true);
-				OwnerPlayer->PlayAnimMontage(FetchedMontage, 1.0f);
-			}		
-		}
-		else if (ChosenJump == EJumpTypes::ZViewBackFlip)
-		{
-			if (ActionsMontagesDataTable)
-			{
-
-				//Fetch the corresponding CharacterActions Struct (1st level)
-				TMap<EJumpTypes, FAnimMontages> JumpTypes = MontagesStruct->Jumps;
-				//Get the Montage struct corresponding to the enum we want
-				FAnimMontages EquipAnimMontageStruct = JumpTypes.FindRef(ChosenJump);
-				//Get the Montage from the last Montages Struct
-				UAnimMontage* FetchedMontage = EquipAnimMontageStruct.AnimMontage;
-
-				//Plays the montage
-				JumpForce = (OwnerPlayer->GetActorForwardVector() * -(JumpDistance / 2.25f) + (OwnerPlayer->GetActorUpVector() * JumpHeight * 1.45f));
-				OwnerPlayer->LaunchCharacter(JumpForce, true, true);
-				OwnerPlayer->PlayAnimMontage(FetchedMontage, 1.0f);
-			}			
-		}
-		else if (ChosenJump == EJumpTypes::ZViewJumpAttack)
-		{
-			if (ActionsMontagesDataTable)
-			{
-
-				//Fetch the corresponding CharacterActions Struct (1st level)
-				TMap<EJumpTypes, FAnimMontages> JumpTypes = MontagesStruct->Jumps;
-				//Get the Montage struct corresponding to the enum we want
-				FAnimMontages EquipAnimMontageStruct = JumpTypes.FindRef(ChosenJump);
-				//Get the Montage from the last Montages Struct
-				UAnimMontage* FetchedMontage = EquipAnimMontageStruct.AnimMontage;
-
-				//Plays the montage
-				JumpForce = (OwnerPlayer->GetActorForwardVector() * (JumpDistance / 2.25f) + (OwnerPlayer->GetActorUpVector() * JumpHeight * 1.45f));
-				OwnerPlayer->LaunchCharacter(JumpForce, true, true);
-				OwnerPlayer->PlayAnimMontage(FetchedMontage, 1.0f);
-			}
-			
-		}
-
 	}
 }
 

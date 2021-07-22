@@ -46,6 +46,9 @@ enum class EJumpTypes : uint8 {
 	ZViewRightJump			UMETA(DisplayName = "ZViewRightJump"),
 	ZViewLeftJump			UMETA(DisplayName = "ZViewLeftJump"),
 	ZViewBackFlip			UMETA(DisplayName = "ZViewBackFlip"),
+	StandardJump			UMETA(DisplayName = "StandardJump"),
+	SideFlipJump			UMETA(DisplayName = "SideFlipJump"),
+	FrontflipJump			UMETA(DisplayName = "FrontFlipJump"),
 };
 
 UENUM(BlueprintType)
@@ -122,11 +125,14 @@ public:
 	UActionsComponent();
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Reference")
-		class UEquipmentComponent* EquipmentManager ;
+		class UEquipmentComponent* EquipmentManager;
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Reference")
 		//Used to store the player AnimInstance
 		class UAnimInstance* PlayerAnimInstance;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Reference")
+		class ULineTraceBase* LineTrace;
 
 	/// ACTIONS LISTING
 	void FaceRight_Button_NormalAttack();
@@ -306,5 +312,11 @@ private:
 
 	//Sets the Owner to the Player 
 	APlayerBase* OwnerPlayer;
+
+	//Declaring Start and End trace points (ledge detection)
+	FHitResult Hit;
+	FVector TraceStart;
+	FVector TraceEnd;
+	float TraceDuration = 3.0f;
 		
 };
