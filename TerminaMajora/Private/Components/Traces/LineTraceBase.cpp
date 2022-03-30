@@ -72,33 +72,45 @@ void ULineTraceBase::FootStepsTrace(APlayerBase* OwnerPlayer, FName RightFootSKT
 
 		switch (SurfaceT)
 		{
+			//Grass
 			case SurfaceType1:
 			{/*GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, FString::Printf(TEXT("Hit: Grass")));*/
 				OwnerPlayer->SoundManager->PlaySoundAtLoc(OwnerPlayer->SoundManager->Footstep_Grass, OwnerPlayer->GetActorLocation());
 				break;
 			}
 
+			//Stone
 			case SurfaceType2:
 			{	/*GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, FString::Printf(TEXT("Hit: Rock")));*/
 				OwnerPlayer->SoundManager->PlaySoundAtLoc(OwnerPlayer->SoundManager->Footstep_Stone, OwnerPlayer->GetActorLocation());
 				break;
 			}
 
+			//Wood
 			case SurfaceType3:
 			{	/*GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, FString::Printf(TEXT("Hit: Wood")));*/
 				OwnerPlayer->SoundManager->PlaySoundAtLoc(OwnerPlayer->SoundManager->Footstep_Wood, OwnerPlayer->GetActorLocation());
 				break;
 			}
 
+			//Dirt
 			case SurfaceType4:
 			{	/*GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, FString::Printf(TEXT("Hit: Dirt")));*/
 				OwnerPlayer->SoundManager->PlaySoundAtLoc(OwnerPlayer->SoundManager->Footstep_Dirt, OwnerPlayer->GetActorLocation());
 				break;
 			}
 
+			//TallGrass
 			case SurfaceType5:
 			{	/*GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, FString::Printf(TEXT("Hit: TallGrass")));*/
 				OwnerPlayer->SoundManager->PlaySoundAtLoc(OwnerPlayer->SoundManager->Footstep_TallGrass, OwnerPlayer->GetActorLocation());
+				break;
+			}
+
+			//Mud
+			case SurfaceType6:
+			{	/*GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, FString::Printf(TEXT("Hit: TallGrass")));*/
+				OwnerPlayer->SoundManager->PlaySoundAtLoc(OwnerPlayer->SoundManager->Footstep_Mud, OwnerPlayer->GetActorLocation());
 				break;
 			}
 		}

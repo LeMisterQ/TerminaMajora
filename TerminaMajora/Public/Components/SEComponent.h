@@ -81,6 +81,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sounds|Footsteps")
 		class USoundCue* Footstep_TallGrass;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sounds|Footsteps")
+		class USoundCue* Footstep_Mud;
+
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Reference")
 		class ULineTraceBase* LineTrace;
 
